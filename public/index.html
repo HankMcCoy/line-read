@@ -629,11 +629,12 @@ function render(){
   html += `<div class="speech yours"><div class="who">${esc(c.line.who)}${tag}</div>`;
   const gaps = runGaps.get(order[pos]);
   html += revealed
-    ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div>' : ''}`
+    ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div><button type="button" class="more" id="heardWrongBtn" style="margin-top:8px">I said it right</button>' : ''}`
     : `<div class="blank${hearing() ? ' listening' : ''}" aria-label="Your line is hidden"><i></i><span id="blankLabel">${blankLabel()}</span><i></i></div>`;
   html += '</div></div>';
   pageEl.innerHTML = html;
   const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { showAllCue = true; render(); });
+  const hw = $('heardWrongBtn'); if (hw) hw.addEventListener('click', heardWrong);
 
   $('controls').hidden = false; $('hint').hidden = false;
   lineBtn.disabled = revealed;
@@ -1025,6 +1026,13 @@ function showLine(gaps){
   revealed = true; prompted.add(order[pos]);
   commit(order[pos], true);
   render();
+}
+// Listening called the line but misheard you: count it clean after all and move on.
+function heardWrong(){
+  const ci = order[pos];
+  prompted.delete(ci); runGaps.delete(ci);
+  commit(ci, false);
+  next();
 }
 function next(){
   if (finished) return;
