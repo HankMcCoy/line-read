@@ -1,8 +1,8 @@
 // Line Drill service worker: lets the app open offline once it has been visited.
 // Bump VERSION whenever the app shell changes so old caches are cleared.
-const VERSION = 'v1';
-const SHELL = `line-drill-shell-${VERSION}`;
-const FONTS = 'line-drill-fonts';
+const VERSION = 'v2';
+const SHELL = `line-read-shell-${VERSION}`;
+const FONTS = 'line-read-fonts';
 const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -10,7 +10,8 @@ self.addEventListener('install', e => {
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(k => k.startsWith('line-drill-shell-') && k !== SHELL).map(k => caches.delete(k))
+    // Also clear caches left by the app's earlier name, line-drill.
+    keys.filter(k => (k.startsWith('line-read-shell-') && k !== SHELL) || k.startsWith('line-drill-')).map(k => caches.delete(k))
   )).then(() => self.clients.claim()));
 });
 
