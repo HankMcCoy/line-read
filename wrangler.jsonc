@@ -1,0 +1,8 @@
+{
+  // Line Drill is a static site: Cloudflare serves the files in ./public, no server code.
+  "name": "line-drill",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public"
+  }
+}
