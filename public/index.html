@@ -82,6 +82,10 @@ select{font-family:var(--font-ui); font-size:14px; color:var(--ink); background:
 .scene-tag{font-family:var(--font-ui); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin:-14px 0 4px; padding-right:56px}
 .more{align-self:flex-start; font-size:11.5px; padding:6px 10px; border-color:var(--rule); color:var(--muted); letter-spacing:.08em}
 select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.scene-pick{display:flex; align-items:center; gap:10px; width:100%; min-width:0; text-align:left; font-family:var(--font-ui); font-size:14px; font-weight:400; color:var(--ink); background:var(--paper); border:1px solid var(--rule); border-radius:6px; padding:10px 12px; font-variant-numeric:tabular-nums; text-transform:none; letter-spacing:0}
+.scene-pick span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.scene-pick svg{width:16px; height:16px; flex:none; color:var(--muted)}
+.scene-list.ranges{margin-bottom:6px}
 .status-row .mode{color:var(--accent); font-weight:500}
 .ticks{display:flex; gap:2px}
 .tick{flex:1; min-width:0; height:6px; border-radius:2px; background:var(--rule); border:0; padding:0; cursor:pointer}
@@ -270,7 +274,6 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
       <h1 id="heading">Line Drill</h1>
     </div>
     <div class="top-actions" id="topActions" hidden>
-      <button type="button" class="open-sheet" data-sheet="historySheet" aria-haspopup="dialog">History</button>
       <button type="button" class="open-sheet" data-sheet="scriptSheet" aria-haspopup="dialog">Script</button>
     </div>
   </header>
@@ -300,7 +303,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   <div id="drill" hidden>
   <div class="summary" id="summary" aria-live="polite"></div>
 
-  <select id="sceneSel" aria-label="Scene"></select>
+  <button type="button" class="scene-pick" id="scenePick" data-sheet="historySheet" aria-haspopup="dialog"><span id="scenePickLabel"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 
   <div class="status">
     <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
@@ -325,7 +328,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
 
 <div class="sheet" id="historySheet" role="dialog" aria-modal="true" aria-labelledby="historyHead" hidden>
   <div class="sheet-inner">
-    <div class="sheet-head"><h2 id="historyHead">Scene history</h2><button type="button" class="btn-back close-sheet">Done</button></div>
+    <div class="sheet-head"><h2 id="historyHead">Scenes</h2><button type="button" class="btn-back close-sheet">Done</button></div>
   <section class="history" aria-label="Scenes">
     <div id="history"></div>
   </section>
@@ -531,19 +534,17 @@ function load(text, r){
   setRange(want);
   return true;
 }
-function renderSceneOptions(){
-  const sel = $('sceneSel');
-  const nTrouble = chunks.filter(isTrouble).length;
-  let html = '';
-  if (nTrouble) html += `<option value="trouble">Trouble lines · ${nTrouble} to drill</option>`;
-  html += `<option value="all">Whole script · ${chunks.length} lines</option>`;
-  if (scenes.length > 1) html += scenes.map(s => {
-    const last = sceneRuns(s).pop();
+function renderScenePick(){
+  let text;
+  if (rangeId === 'trouble') text = `Trouble lines · ${chunks.filter(isTrouble).length} to drill`;
+  else if (rangeId === 'all') text = `Whole script · ${chunks.length} lines`;
+  else {
+    const s = scene(rangeId), last = sceneRuns(s).pop();
     const status = last ? (last.called ? ` · last: ${last.called} called` : ' · last: clean') : '';
-    return `<option value="${s.id}">p. ${esc(s.page || '?')} · ${esc(niceTitle(s.title))} · ${s.count} line${s.count===1?'':'s'}${status}</option>`;
-  }).join('');
-  sel.innerHTML = html;
-  sel.value = String(rangeId);
+    text = `p. ${s.page || '?'} · ${niceTitle(s.title)} · ${s.count} line${s.count===1?'':'s'}${status}`;
+  }
+  $('scenePickLabel').textContent = text;
+  $('scenePick').setAttribute('aria-label', `Scene: ${text}. Choose another scene`);
 }
 function rangeChunks(id){
   if (id === 'all') return chunks.map(c => c.idx);
@@ -561,7 +562,7 @@ function startRun(m, subset){
   if (!order.length){ rangeId = scenes[0].id; order = rangeChunks(rangeId); }
   pos = 0; revealed = false; finished = false; showAllCue = false; prompted = new Set();
   runRes = new Map(); runSnap = new Map(); runLogged = false; currentRun = null; runGaps = new Map();
-  renderSceneOptions();
+  renderScenePick();
   render();
   speakCurrent();
 }
@@ -679,25 +680,37 @@ function renderProgress(){
   });
 }
 
+// The Scenes sheet is both the scene picker and the run history: tap a row to run it.
 function renderHistory(){
   const box = $('history');
-  const any = scenes.some(s => sceneRuns(s).length);
-  let html = any ? '' : `<p class="empty">Finish a scene and it shows up here with the date, how many lines you called for, and a trend line that climbs as you get cleaner runs.</p>`;
-  html += '<ul class="scene-list">';
-  for (const s of scenes){
-    const runs = sceneRuns(s), last = runs[runs.length - 1];
-    const solid = chunks.filter(c => c.section === s.id && isSolid(c)).length;
+  const any = P.runs.some(r => r.role === role);
+  const row = (id, name, detail, runs) => {
+    const last = runs[runs.length - 1];
     const res = last
       ? `<b class="${last.called ? '' : 'clean'}">${last.called ? last.called + ' called' : 'Clean'}</b>${ago(last.t)}`
       : `<b>—</b>not yet`;
-    html += `<li><button type="button" class="scene-row${s.id === rangeId ? ' current' : ''}" data-scene="${s.id}">
-      <span class="nm"><span>${esc(niceTitle(s.title))}</span><small>p. ${esc(s.page || '?')} · ${solid}/${s.count} solid · ${runs.length} run${runs.length===1?'':'s'}</small></span>
+    return `<li><button type="button" class="scene-row${id === rangeId ? ' current' : ''}" data-range="${id}"${id === rangeId ? ' aria-current="true"' : ''}>
+      <span class="nm"><span>${esc(name)}</span><small>${detail} · ${runs.length} run${runs.length===1?'':'s'}</small></span>
       ${sparkSVG(runs)}
       <span class="res">${res}</span></button></li>`;
+  };
+  const kindRuns = k => P.runs.filter(r => r.role === role && r.kind === k);
+  let html = any ? '' : `<p class="empty">Tap a scene to run it. Each one you finish shows when you last ran it, how many lines you called for, and a trend line that climbs as your runs get cleaner.</p>`;
+  html += '<ul class="scene-list ranges">';
+  const nTrouble = chunks.filter(isTrouble).length;
+  if (nTrouble || rangeId === 'trouble') html += row('trouble', 'Trouble lines', `${nTrouble} to drill`, kindRuns('trouble'));
+  html += row('all', 'Whole script', `${chunks.filter(isSolid).length}/${chunks.length} solid`, kindRuns('all'));
+  html += '</ul><ul class="scene-list">';
+  for (const s of scenes){
+    const solid = chunks.filter(c => c.section === s.id && isSolid(c)).length;
+    html += row(s.id, niceTitle(s.title), `p. ${esc(s.page || '?')} · ${solid}/${s.count} solid`, sceneRuns(s));
   }
   html += '</ul>';
   box.innerHTML = html;
-  box.querySelectorAll('.scene-row').forEach(b => b.addEventListener('click', () => { closeSheet(); setRange(Number(b.dataset.scene)); window.scrollTo({top:0}); }));
+  box.querySelectorAll('.scene-row').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.range;
+    closeSheet(); setRange(v === 'all' || v === 'trouble' ? v : Number(v)); window.scrollTo({top:0});
+  }));
 }
 
 function renderEnd(){
@@ -734,7 +747,7 @@ function renderEnd(){
   if (nextScene) html += `<button type="button" id="nextSceneBtn">Next scene: ${esc(niceTitle(nextScene.title))}</button>`;
   html += '</div></div>';
   pageEl.innerHTML = html;
-  const fb = $('flubBtn'); if (fb) fb.addEventListener('click', () => { prompted.add(lastIdx); commit(lastIdx, true); logRun(); renderSceneOptions(); render(); });
+  const fb = $('flubBtn'); if (fb) fb.addEventListener('click', () => { prompted.add(lastIdx); commit(lastIdx, true); logRun(); renderScenePick(); render(); });
   const d = $('drillBtn'); if (d) d.addEventListener('click', () => startRun('drill', missed));
   $('againBtn').addEventListener('click', () => startRun('full'));
   const ns = $('nextSceneBtn'); if (ns) ns.addEventListener('click', () => { setRange(nextScene.id); window.scrollTo({top:0}); });
@@ -1046,7 +1059,7 @@ function next(){
     stopListening();
     if (!runLogged && mode === 'full'){ day++; store.set(K.day, String(day)); }
     logRun();
-    renderSceneOptions();
+    renderScenePick();
     render();
   }
 }
@@ -1059,7 +1072,7 @@ function back(){
 lineBtn.addEventListener('click', () => showLine());
 nextBtn.addEventListener('click', next);
 backBtn.addEventListener('click', back);
-$('sceneSel').addEventListener('change', e => { const v = e.target.value; setRange(v === 'all' || v === 'trouble' ? v : Number(v)); });
+$('scenePick').addEventListener('click', () => openSheet('historySheet'));
 
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
@@ -1084,6 +1097,8 @@ function openSheet(id){
   if (id === 'scriptSheet') fillScriptSheet();
   el.hidden = false; document.documentElement.style.overflow = 'hidden';
   el.scrollTop = 0; el.querySelector('.close-sheet').focus();
+  const cur = el.querySelector('.scene-row.current');
+  if (cur && cur.getBoundingClientRect().bottom > innerHeight) cur.scrollIntoView({block: 'center'});
 }
 function closeSheet(){
   const el = openSheetEl();
