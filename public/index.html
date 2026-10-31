@@ -900,7 +900,7 @@ function matchWords(want, heard){
 }
 // How many words must be heard to count the line as said: all of a short line, most of a long one.
 const needed = n => n <= 2 ? n : n <= 5 ? n - 1 : Math.ceil(n * 0.8);
-const PAUSE_OK = 900, PAUSE_DONE = 400, PAUSE_MISS = 4000;
+const PAUSE_OK = 900, PAUSE_DONE = 400, PAUSE_MISS = 2000;
 
 const hearing = () => !!L && !finished && L.ci === order[pos];
 const blankLabel = () => !hearing() ? 'your line' : L.said ? 'hearing you…' : 'listening…';
