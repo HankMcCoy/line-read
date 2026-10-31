@@ -27,7 +27,7 @@ npx wrangler login     # first time only; opens a browser to sign in
 npx wrangler deploy
 ```
 
-The first deploy prints the live URL, `https://line-drill.<your-subdomain>.workers.dev`.
+The first deploy prints the live URL, `https://line-read.<your-subdomain>.workers.dev`.
 To use your own domain, add it under the Worker's **Settings → Domains & Routes** in the Cloudflare dashboard.
 
 ## Releasing an update
