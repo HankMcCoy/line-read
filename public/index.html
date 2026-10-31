@@ -128,6 +128,11 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .speak-toggle.rate{color:var(--accent); border-color:var(--accent); font-variant-numeric:tabular-nums; min-width:52px; justify-content:center}
 .speak-toggle .wave{opacity:0}
 .speak-toggle[aria-pressed="true"] .wave{opacity:1}
+.speak-toggle.live svg, .blank.listening i{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+#listenMsg:empty{display:none}
+mark.gap{background:none; color:var(--bad); text-decoration:underline wavy; text-decoration-thickness:1px; text-underline-offset:4px}
+.gap-note{font-family:var(--font-ui); font-size:12px; color:var(--muted); margin-top:6px}
 .status-row{align-items:center; gap:8px; flex-wrap:wrap}
 .status-row > span, .speak-toggle{white-space:nowrap}
 .status-row #modeLabel{margin-right:auto}
@@ -175,7 +180,7 @@ textarea{min-height:260px; resize:vertical; line-height:1.55; width:100%; box-si
   .say{font-size:18.5px}
   .hint{display:none}
 }
-@media (prefers-reduced-motion: reduce){ .reveal{animation:none} button{transition:none} }
+@media (prefers-reduced-motion: reduce){ .reveal, .speak-toggle.live svg, .blank.listening i{animation:none} button{transition:none} }
 
 /* ---- progress & history ---- */
 .summary{display:flex; flex-wrap:wrap; gap:6px 18px; font-family:var(--font-ui); font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
@@ -297,7 +302,8 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   <select id="sceneSel" aria-label="Scene"></select>
 
   <div class="status">
-    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button></div>
+    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
+    <p class="msg" id="listenMsg" aria-live="polite"></p>
     <div id="progress"></div>
   </div>
 
@@ -366,13 +372,28 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   </div>
 </div>
 
+<div class="sheet" id="listenSheet" role="dialog" aria-modal="true" aria-labelledby="listenHead" hidden>
+  <div class="sheet-inner">
+    <div class="sheet-head"><h2 id="listenHead">Listen for my lines</h2><button type="button" class="btn-back close-sheet">Cancel</button></div>
+    <div class="editor">
+      <p>After each cue, Line Drill turns on the microphone and listens while you say your line. When you’ve said it, it moves on to the next cue by itself. If you stop partway and pause, it shows the line, marks the words it didn’t hear, and counts the line as called.</p>
+      <p><b>Where your voice goes.</b> Your browser does the speech recognition, not Line Drill. In most browsers that means your voice is sent to the company that makes the browser, such as Google for Chrome or Apple for Safari, to be turned into text, under their privacy policy. Some devices do it on the device instead.</p>
+      <p>Line Drill itself never records or uploads anything. The text the browser sends back is compared with your line on this device and then thrown away.</p>
+      <p>The microphone is only on while the Listen button is lit. Tap it again to turn listening off.</p>
+      <div class="editor-actions">
+        <button type="button" class="btn-primary" id="listenOkBtn">Turn on listening</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const SAMPLE_SCRIPT = "@ Scene 1 — The Green Room\n# 1\n(Half an hour before curtain. ROSA paces with a script. MAX enters with a clipboard.)\nMAX: Thirty minutes, Rosa.\nROSA: Thirty? It was thirty an hour ago.\nMAX: That was the half-hour call for the half-hour call.\nROSA: That isn’t a thing.\nMAX: It is tonight. How are the lines?\nROSA: Perfect. Flawless. Gone.\nMAX: Gone?\nROSA: Gone. Every word of act two has left the building.\nMAX: You ran it twice this afternoon.\nROSA: And it went beautifully both times. That’s how I know it’s gone.\n(♪ COMPANY, warming up offstage)\nMAX: Hear that? Everyone else is nervous too.\nROSA: They’re singing scales. Scales don’t have a second act.\n@ Scene 2 — The Wings\n# 2\n(Places. ROSA and MAX in the wings, lit by a blue running light.)\nMAX: Last thing. What’s your first line?\nROSA: My first line.\nMAX: Yes.\nROSA: My first line is “Good evening, Inspector.”\nMAX: And then?\nROSA: And then he says something, and I say something back.\nMAX: Rosa.\nROSA: “You’re late, Inspector. The body has been waiting.”\nMAX: There it is.\nROSA: There it is.\n(The house lights fade. MAX squeezes her shoulder and exits.)";
 const SAMPLE_ROLE = 'ROSA';
 const CUE_MAX = 6;        // cue items shown before "show earlier"
 const SOLID = 3;          // clean runs in a row before a line counts as solid
 const MAX_RUNS = 800;
-const K = { rate:'ld-rate', speak:'ld-speak', day:'ld-day', script:'ld-script', role:'ld-role', scene:'ld-scene', prog:'ld-progress', show:'ld-show', attest:'ld-attested' };
+const K = { rate:'ld-rate', speak:'ld-speak', day:'ld-day', script:'ld-script', role:'ld-role', scene:'ld-scene', prog:'ld-progress', show:'ld-show', attest:'ld-attested', listen:'ld-listen', listenOk:'ld-listen-ok' };
 
 const store = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -488,6 +509,7 @@ function sparkSVG(runs, cls){
 // ---------- state ----------
 let role, chunks = null, tail, sections, scenes, rangeId, order, pos, revealed, prompted, mode, finished, showAllCue;
 let runRes = new Map(), runSnap = new Map(), runLogged = false, currentRun = null;
+let runGaps = new Map();  // cue index -> token indexes of words listening didn't hear, this run
 let day = parseInt(store.get(K.day) || '1', 10) || 1;
 const $ = id => document.getElementById(id);
 const pageEl = $('page'), lineBtn = $('lineBtn'), nextBtn = $('nextBtn'), backBtn = $('backBtn');
@@ -537,7 +559,7 @@ function startRun(m, subset){
   order = m === 'drill' ? subset : rangeChunks(rangeId);
   if (!order.length){ rangeId = scenes[0].id; order = rangeChunks(rangeId); }
   pos = 0; revealed = false; finished = false; showAllCue = false; prompted = new Set();
-  runRes = new Map(); runSnap = new Map(); runLogged = false; currentRun = null;
+  runRes = new Map(); runSnap = new Map(); runLogged = false; currentRun = null; runGaps = new Map();
   renderSceneOptions();
   render();
   speakCurrent();
@@ -605,9 +627,10 @@ function render(){
   if (r && r.streak >= SOLID) tag = `<span class="tag solid">SOLID</span>`;
   else if (r && r.miss) tag = `<span class="tag shaky">CALLED ${r.miss} OF ${r.ok + r.miss}</span>`;
   html += `<div class="speech yours"><div class="who">${esc(c.line.who)}${tag}</div>`;
+  const gaps = runGaps.get(order[pos]);
   html += revealed
-    ? `<div class="say reveal">${fmt(c.line.text)}</div>`
-    : `<div class="blank" aria-label="Your line is hidden"><i></i><span>your line</span><i></i></div>`;
+    ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div>' : ''}`
+    : `<div class="blank${hearing() ? ' listening' : ''}" aria-label="Your line is hidden"><i></i><span id="blankLabel">${blankLabel()}</span><i></i></div>`;
   html += '</div></div>';
   pageEl.innerHTML = html;
   const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { showAllCue = true; render(); });
@@ -699,7 +722,7 @@ function renderEnd(){
       const c = chunks[ci];
       const lastCue = [...c.cue].reverse().find(it => it.type === 'line') || c.cue[c.cue.length-1];
       const cueText = lastCue ? (lastCue.type === 'line' ? `${cap(lastCue.who)}: ${lastCue.text}` : lastCue.text) : '(top of scene)';
-      html += `<li><div class="cue">${esc(cueText)}</div><div class="ans">${fmt(c.line.text)}</div></li>`;
+      html += `<li><div class="cue">${esc(cueText)}</div><div class="ans">${lineHTML(c.line.text, runGaps.get(ci))}</div></li>`;
     }
     html += '</ul>';
   }
@@ -756,21 +779,32 @@ function say(text, who, opts){
   u.pitch = v.pitch; u.rate = Math.min(2, ((opts && opts.rate) || 1) * rate); u.volume = (opts && opts.volume) || 1;
   speechSynthesis.speak(u);
 }
+// Every cue change goes through here: stop listening, read the cue, then listen for your line.
 function speakCurrent(){
-  if (!TTS || !speakOn || !booted || finished || !order.length) return;
-  speechSynthesis.cancel();
-  const c = chunks[order[pos]];
-  let cue = c.cue;
-  if (cue.length > CUE_MAX && !showAllCue) cue = cue.slice(-CUE_MAX);
-  const lines = cue.filter(it => it.type === 'line');
-  if (lines.length){ for (const it of lines) say(spokenText(it.text), it.who); return; }
-  // Nothing spoken before your line: say where you are, quietly, so you know the cue moved.
-  const lastDir = cue[cue.length - 1];
-  const firstInScene = c.idx === 0 || chunks[c.idx-1].section !== c.section;
-  const text = firstInScene ? niceTitle(sections[c.section].title).replace(/#\d+\s*/, '')
-    : lastDir ? (lastDir.text.startsWith('(♪') ? 'After the music.' : spokenText(lastDir.text.replace(/^\(|\)$/g, '')))
-    : 'Your line.';
-  say(text, null, {rate: 1.1, volume: 0.75});
+  const tok = ++cueToken;
+  // Give the microphone a moment to let go before speaking (iPhones route audio differently while it's on).
+  if (stopListening()) setTimeout(() => { if (tok === cueToken) speakCue(tok); }, 300);
+  else speakCue(tok);
+}
+function speakCue(tok){
+  if (TTS && speakOn && booted && !finished && order.length){
+    speechSynthesis.cancel();
+    const c = chunks[order[pos]];
+    let cue = c.cue;
+    if (cue.length > CUE_MAX && !showAllCue) cue = cue.slice(-CUE_MAX);
+    const lines = cue.filter(it => it.type === 'line');
+    if (lines.length){ for (const it of lines) say(spokenText(it.text), it.who); }
+    else {
+      // Nothing spoken before your line: say where you are, quietly, so you know the cue moved.
+      const lastDir = cue[cue.length - 1];
+      const firstInScene = c.idx === 0 || chunks[c.idx-1].section !== c.section;
+      const text = firstInScene ? niceTitle(sections[c.section].title).replace(/#\d+\s*/, '')
+        : lastDir ? (lastDir.text.startsWith('(♪') ? 'After the music.' : spokenText(lastDir.text.replace(/^\(|\)$/g, '')))
+        : 'Your line.';
+      say(text, null, {rate: 1.1, volume: 0.75});
+    }
+  }
+  listenAfterSpeech(tok);
 }
 async function holdWake(on){
   try {
@@ -779,7 +813,11 @@ async function holdWake(on){
     } else if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
   } catch(e){ wakeLock = null; }
 }
-document.addEventListener('visibilitychange', () => { if (speakOn && document.visibilityState === 'visible') holdWake(true); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible'){ stopListening(); return; }
+  if (speakOn || listenOn) holdWake(true);
+  armListen();
+});
 function syncSpeakUI(){
   const b = $('speakBtn');
   b.hidden = !TTS;
@@ -796,14 +834,191 @@ $('rateBtn').addEventListener('click', () => {
 $('speakBtn').addEventListener('click', () => {
   speakOn = !speakOn; store.set(K.speak, speakOn ? '1' : '0'); syncSpeakUI();
   if (speakOn){ loadVoices(); holdWake(true); speakCurrent(); }
-  else { speechSynthesis.cancel(); holdWake(false); }
+  else { speechSynthesis.cancel(); holdWake(listenOn); }
 });
 $('againCueBtn').addEventListener('click', () => speakCurrent());
 syncSpeakUI();
 
+// ---------- listen for your line ----------
+// Opt-in. The browser's speech recognition turns your voice into text (usually on Google's or
+// Apple's servers); the text is matched against your line here and never stored.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let listenOn = !!SR && store.get(K.listen) === '1' && !!store.get(K.listenOk);
+let cueToken = 0, L = null, userActed = false;
+const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+// Words recognisers commonly swap for each other.
+const SAME = {two:'to', too:'to', their:'there', theyre:'there', youre:'your', four:'for', know:'no', write:'right', hear:'here', buy:'by', bye:'by', won:'one', ok:'okay', o:'oh', mr:'mister', mrs:'missus', dr:'doctor', till:'til', until:'til'};
+function numWords(w){
+  if (!/^\d+$/.test(w)) return [w];
+  const n = +w;
+  if (n < 20) return [ONES[n]];
+  if (n < 100) return n % 10 ? [TENS[Math.floor(n/10)], ONES[n % 10]] : [TENS[n/10]];
+  return [w];
+}
+const canon = w => { w = w.replace(/'/g, ''); return SAME[w] || w; };
+const speechWords = s => normText(s).split(' ').filter(Boolean).flatMap(numWords).map(canon);
+// The words of a line to listen for, skipping stage directions, each with the index of the
+// whitespace-separated token it came from so missed words can be marked in place.
+function lineWords(text){
+  const out = []; let depth = 0;
+  text.split(/(\s+)/).forEach((t, i) => {
+    if (i % 2) return;
+    const inParen = depth > 0 || t.startsWith('(');
+    for (const ch of t){ if (ch === '(') depth++; else if (ch === ')') depth = Math.max(0, depth - 1); }
+    if (!inParen) for (const w of speechWords(t)) out.push({w, tok: i / 2});
+  });
+  return out;
+}
+function lineHTML(text, gaps){
+  if (!gaps || !gaps.length) return fmt(text);
+  const marked = text.split(/(\s+)/).map((t, i) => i % 2 === 0 && gaps.includes(i / 2) ? `\u0001${t}\u0002` : t).join('');
+  return fmt(marked).replace(/\u0001/g, '<mark class="gap">').replace(/\u0002/g, '</mark>');
+}
+function lev(a, b){
+  let prev = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++){
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+const near = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && lev(a, b) <= (a.length >= 8 ? 2 : 1));
+// Which of the line's words were heard, in order (a longest common subsequence with fuzzy word matching).
+function matchWords(want, heard){
+  const n = want.length, m = heard.length;
+  const dp = Array.from({length: n + 1}, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    dp[i][j] = near(want[i], heard[j]) ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const hit = new Set();
+  for (let i = 0, j = 0; i < n && j < m;){
+    if (near(want[i], heard[j]) && dp[i][j] === dp[i+1][j+1] + 1){ hit.add(i); i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]) i++; else j++;
+  }
+  return hit;
+}
+// How many words must be heard to count the line as said: all of a short line, most of a long one.
+const needed = n => n <= 2 ? n : n <= 5 ? n - 1 : Math.ceil(n * 0.8);
+const PAUSE_OK = 900, PAUSE_DONE = 400, PAUSE_MISS = 4000;
+
+const hearing = () => !!L && !finished && L.ci === order[pos];
+const blankLabel = () => !hearing() ? 'your line' : L.hit ? 'hearing you…' : 'listening…';
+function syncListenUI(){
+  const b = $('listenBtn');
+  b.hidden = !SR;
+  b.setAttribute('aria-pressed', String(listenOn));
+  b.classList.toggle('live', !!L);
+  b.title = listenOn ? 'Listening for your lines. Tap to stop.' : 'Listen for your lines';
+  const blank = pageEl.querySelector('.blank');
+  if (blank){ blank.classList.toggle('listening', hearing()); $('blankLabel').textContent = blankLabel(); }
+}
+function listenMsg(text){ $('listenMsg').textContent = text || ''; }
+function setListen(on){
+  listenOn = on; store.set(K.listen, on ? '1' : '0');
+  listenMsg('');
+  holdWake(speakOn || listenOn);
+  if (on) armListen(); else stopListening();
+  syncListenUI();
+}
+// Start listening for the current cue without re-reading it (after a sheet closes, the app returns, etc.).
+function armListen(){ if (chunks && !$('drill').hidden && !L) listenAfterSpeech(++cueToken); }
+function listenAfterSpeech(tok){
+  if (!listenOn || !SR) return;
+  const wait = () => {
+    if (tok !== cueToken) return;
+    if (TTS && (speechSynthesis.speaking || speechSynthesis.pending)) setTimeout(wait, 250);
+    else setTimeout(() => startListening(tok), 150);
+  };
+  wait();
+}
+function startListening(tok){
+  if (tok !== cueToken || !listenOn || !userActed || L || finished || revealed || openSheetEl() || document.visibilityState !== 'visible') return;
+  const ci = order[pos];
+  const want = lineWords(chunks[ci].line.text);
+  if (!want.length) return;
+  let rec;
+  try { rec = new SR(); } catch(e){ return; }
+  const me = L = {ci, want, rec, before: '', now: '', hit: 0, timer: null, restarts: 0, dead: false};
+  rec.lang = navigator.language || 'en-US';
+  rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.onresult = e => {
+    if (L !== me) return;
+    let text = '';
+    for (let i = 0; i < e.results.length; i++) text += ' ' + e.results[i][0].transcript;
+    me.now = text;
+    heard(false);
+  };
+  rec.onerror = e => {
+    if (L !== me) return;
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      me.dead = true; setListen(false);
+      listenMsg('Line Drill can’t use the microphone. Allow it in your browser’s settings for this site, then tap Listen again.');
+    } else if (e.error === 'audio-capture'){ me.dead = true; listenMsg('No microphone found.'); }
+    else if (e.error === 'network'){ me.dead = true; listenMsg('Listening needs an internet connection in this browser.'); }
+    else if (e.error === 'language-not-supported'){ me.dead = true; listenMsg('This browser can’t listen in your language.'); }
+  };
+  // Browsers stop listening after a short silence (iPhones) or a minute or so. If the line is said, move on;
+  // otherwise keep listening, so a pause mid-line still gets the full wait before the line is shown.
+  rec.onend = () => {
+    if (L !== me) return;
+    me.before += ' ' + me.now; me.now = '';
+    if (me.hit >= needed(me.want.length)) return heard(true);
+    if (!me.dead && me.restarts++ < 8){ try { rec.start(); return; } catch(e){} }
+    if (me.hit) return heard(true);
+    L = null; syncListenUI();
+  };
+  try { rec.start(); } catch(e){ L = null; return; }
+  listenMsg('');
+  syncListenUI();
+}
+function heard(ended){
+  const me = L;
+  const hit = matchWords(me.want.map(x => x.w), speechWords(me.before + ' ' + me.now));
+  me.hit = hit.size;
+  syncListenUI();
+  clearTimeout(me.timer);
+  if (!hit.size) return;
+  const done = () => {
+    if (L !== me) return;
+    if (hit.size >= needed(me.want.length)){ stopListening(); next(); return; }
+    showLine([...new Set(me.want.filter((x, i) => !hit.has(i)).map(x => x.tok))]);
+  };
+  if (ended) return done();
+  me.timer = setTimeout(done, hit.size === me.want.length ? PAUSE_DONE : hit.size >= needed(me.want.length) ? PAUSE_OK : PAUSE_MISS);
+}
+// Returns whether anything was listening.
+function stopListening(){
+  if (!L) return false;
+  const me = L; L = null;
+  clearTimeout(me.timer);
+  try { me.rec.abort(); } catch(e){}
+  syncListenUI();
+  return true;
+}
+$('listenBtn').addEventListener('click', () => {
+  if (!listenOn && !store.get(K.listenOk)){ openSheet('listenSheet'); return; }
+  setListen(!listenOn);
+});
+$('listenOkBtn').addEventListener('click', () => {
+  store.set(K.listenOk, new Date().toISOString());
+  closeSheet();
+  setListen(true);
+});
+// Browsers won't open the microphone before you've touched the page, so wait for that first.
+['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => {
+  if (userActed) return;
+  userActed = true;
+  setTimeout(armListen, 0);
+}, true));
+syncListenUI();
+
 // ---------- actions ----------
-function showLine(){
+// gaps: words listening didn't hear, when it was listening that gave up on the line.
+function showLine(gaps){
   if (finished || revealed) return;
+  stopListening();
+  if (Array.isArray(gaps)) runGaps.set(order[pos], gaps); else runGaps.delete(order[pos]);
   revealed = true; prompted.add(order[pos]);
   commit(order[pos], true);
   render();
@@ -816,6 +1031,7 @@ function next(){
   else {
     finished = true;
     if (TTS) speechSynthesis.cancel();
+    stopListening();
     if (!runLogged && mode === 'full'){ day++; store.set(K.day, String(day)); }
     logRun();
     renderSceneOptions();
@@ -824,11 +1040,11 @@ function next(){
 }
 function back(){
   showAllCue = false;
-  if (finished){ finished = false; pos = order.length - 1; revealed = false; render(); return; }
+  if (finished){ finished = false; pos = order.length - 1; revealed = false; render(); armListen(); return; }
   if (pos > 0){ pos--; revealed = false; render(); speakCurrent(); }
 }
 
-lineBtn.addEventListener('click', showLine);
+lineBtn.addEventListener('click', () => showLine());
 nextBtn.addEventListener('click', next);
 backBtn.addEventListener('click', back);
 $('sceneSel').addEventListener('change', e => { const v = e.target.value; setRange(v === 'all' || v === 'trouble' ? v : Number(v)); });
@@ -850,6 +1066,7 @@ let sheetReturn = null;
 const openSheetEl = () => document.querySelector('.sheet:not([hidden])');
 function openSheet(id){
   closeSheet();
+  stopListening();
   sheetReturn = document.activeElement;
   const el = $(id);
   if (id === 'scriptSheet') fillScriptSheet();
@@ -861,6 +1078,7 @@ function closeSheet(){
   if (!el) return;
   el.hidden = true; document.documentElement.style.overflow = '';
   if (sheetReturn && document.contains(sheetReturn)) sheetReturn.focus();
+  armListen();
 }
 document.querySelectorAll('.open-sheet').forEach(b => b.addEventListener('click', () => openSheet(b.dataset.sheet)));
 document.querySelectorAll('.close-sheet').forEach(b => b.addEventListener('click', closeSheet));
@@ -996,6 +1214,7 @@ function syncShow(){
 }
 function showWelcome(){
   if (TTS) speechSynthesis.cancel();
+  stopListening();
   chunks = null;
   $('drill').hidden = true; $('topActions').hidden = true; $('welcome').hidden = false;
   $('heading').textContent = 'Line Drill'; $('showLabel').hidden = true;

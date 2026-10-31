@@ -2,7 +2,7 @@
 
 Learn your lines one cue at a time. Paste a script, pick your character, and Line Drill shows each cue, reads the other parts aloud if you like, and hides your line until you've had a go. It tracks which lines you know.
 
-Everything runs in the browser. Scripts and progress are stored on the device (localStorage) and never uploaded. There is no server code.
+Everything runs in the browser. Scripts and progress are stored on the device (localStorage) and never uploaded. There is no server code. The one exception is the opt-in **Listen** mode: it uses the browser's speech recognition, which in most browsers sends the microphone audio to the browser maker (Google, Apple) to be transcribed. The app explains this before it's turned on.
 
 ## Files
 
