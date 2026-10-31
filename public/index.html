@@ -903,7 +903,7 @@ const needed = n => n <= 2 ? n : n <= 5 ? n - 1 : Math.ceil(n * 0.8);
 const PAUSE_OK = 900, PAUSE_DONE = 400, PAUSE_MISS = 4000;
 
 const hearing = () => !!L && !finished && L.ci === order[pos];
-const blankLabel = () => !hearing() ? 'your line' : L.hit ? 'hearing you…' : 'listening…';
+const blankLabel = () => !hearing() ? 'your line' : L.said ? 'hearing you…' : 'listening…';
 function syncListenUI(){
   const b = $('listenBtn');
   b.hidden = !SR;
@@ -939,7 +939,7 @@ function startListening(tok){
   if (!want.length) return;
   let rec;
   try { rec = new SR(); } catch(e){ return; }
-  const me = L = {ci, want, rec, before: '', now: '', hit: 0, timer: null, restarts: 0, dead: false};
+  const me = L = {ci, want, rec, before: '', now: '', hit: 0, said: false, timer: null, restarts: 0, dead: false};
   rec.lang = navigator.language || 'en-US';
   rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
   rec.onresult = e => {
@@ -965,7 +965,7 @@ function startListening(tok){
     me.before += ' ' + me.now; me.now = '';
     if (me.hit >= needed(me.want.length)) return heard(true);
     if (!me.dead && me.restarts++ < 8){ try { rec.start(); return; } catch(e){} }
-    if (me.hit) return heard(true);
+    if (me.said) return heard(true);
     L = null; syncListenUI();
   };
   try { rec.start(); } catch(e){ L = null; return; }
@@ -974,11 +974,14 @@ function startListening(tok){
 }
 function heard(ended){
   const me = L;
-  const hit = matchWords(me.want.map(x => x.w), speechWords(me.before + ' ' + me.now));
+  const said = speechWords(me.before + ' ' + me.now);
+  const hit = matchWords(me.want.map(x => x.w), said);
   me.hit = hit.size;
+  // Something was said (right or wrong): a pause now means you're done. A lone stray word on a longer line doesn't count.
+  me.said = !!hit.size || said.length >= Math.min(2, me.want.length);
   syncListenUI();
   clearTimeout(me.timer);
-  if (!hit.size) return;
+  if (!me.said) return;
   const done = () => {
     if (L !== me) return;
     if (hit.size >= needed(me.want.length)){ stopListening(); next(); return; }
