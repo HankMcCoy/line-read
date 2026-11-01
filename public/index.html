@@ -125,7 +125,8 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 }
 .minor{display:flex; gap:10px}
 .minor button{flex:1 1 0; min-width:0; padding:11px 10px; font-size:13px}
-.btn-next{min-height:104px; font-size:22px; letter-spacing:.16em}
+.btn-next{min-height:64px; font-size:18px; letter-spacing:.16em}
+@media (pointer:coarse){ .btn-next{min-height:96px; font-size:22px} }  /* a big thumb target on touch screens */
 .btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
 .speak-toggle{display:inline-flex; align-items:center; gap:7px; padding:6px 11px; font-size:11.5px; letter-spacing:.08em; border-color:var(--rule); color:var(--muted); border-radius:999px}
 .speak-toggle svg{width:15px; height:15px; flex:none}
@@ -181,7 +182,6 @@ textarea{min-height:260px; resize:vertical; line-height:1.55; width:100%; box-si
 
 @media (max-width:440px){
   h1{font-size:23px}
-  .btn-next{min-height:96px}
   .say{font-size:18.5px}
   .hint{display:none}
 }
@@ -262,6 +262,52 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
 .welcome .row button{flex:1 1 220px}
 .btn-primary:disabled{opacity:.45; cursor:default}
 .found{font-family:var(--font-ui); font-size:12.5px; color:var(--muted); margin:0; line-height:1.5}
+
+/* ---- wide screens: scenes sidebar, the scene so far above the current cue, one row of controls ---- */
+.side-head, .past{display:none}
+.script-scroll{display:contents}
+@media (min-width:1024px){
+  body.drilling{padding:0}
+  body.drilling .wrap{max-width:none; height:100vh; height:100dvh; min-height:0; margin:0 0 0 320px; padding:22px 48px 0; align-items:center; gap:14px}
+  body.drilling #drill > *{width:780px; max-width:100%}
+  body.drilling header, body.drilling #summary, body.drilling #scenePick{display:none}
+  body.drilling #scriptScroll{display:flex; flex-direction:column; gap:18px; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; width:828px; max-width:calc(100% + 48px); padding:6px 24px 20px}
+  body.drilling .past{display:flex; flex-direction:column; gap:16px; margin-top:auto}
+  body.drilling #scriptScroll.ending .past{margin-top:0}
+  body.drilling .speech > .more{justify-self:start}
+  body.drilling .past .say{font-size:18px}
+  body.drilling .past .scene-tag{margin:0}
+  body.drilling .page{padding:22px 28px 22px}
+  body.drilling .speech{display:grid; grid-template-columns:104px minmax(0,1fr); column-gap:18px; row-gap:4px; align-items:baseline}
+  body.drilling .speech > :not(.who){grid-column:2}
+  body.drilling .who{text-align:left; font-size:13.5px}
+  body.drilling .who .tag{display:block; margin:3px 0 0; font-size:9.5px; line-height:1.35; vertical-align:0}
+  body.drilling .yours .who, body.drilling .past .mine .who{color:var(--accent)}
+  body.drilling .dir{padding-left:122px; font-size:16.5px}
+  .mark{font-family:var(--font-ui); font-size:11px; letter-spacing:.1em; margin-left:8px; vertical-align:1px}
+  .mark.ok{color:var(--good)}
+  .mark.called{color:var(--accent)}
+
+  body.drilling .controls{position:static; flex-direction:row; flex-wrap:wrap; box-shadow:none; margin-inline:0; padding:12px 0 16px}
+  body.drilling .minor{flex:3 1 0}
+  body.drilling .btn-next{flex:2 1 0; min-height:0; padding:12px 10px; font-size:15px}
+  body.drilling .hint{flex-basis:100%}
+
+  body.drilling #historySheet, body.drilling #historySheet[hidden]{display:block!important; inset:0 auto 0 0; width:320px; z-index:10; background:var(--paper); border-right:1px solid var(--rule); padding:0 0 24px}
+  body.drilling #historySheet .sheet-head{display:none}
+  body.drilling #historySheet .sheet-inner{gap:14px}
+  body.drilling .side-head{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 10px; align-items:center; padding:24px 20px 4px}
+  .side-title{font-size:24px; font-weight:600; line-height:1.15}
+  .side-head .summary{grid-column:1 / -1; margin-top:8px; font-size:11.5px; gap:4px 14px}
+  .side-head .open-sheet{grid-column:2; grid-row:1 / span 2}
+  body.drilling #historySheet .history .empty{padding:0 20px; font-size:15px}
+  body.drilling #historySheet .scene-row{grid-template-columns:minmax(0,1fr) 72px; grid-template-rows:auto auto; row-gap:4px; padding:10px 20px; font-size:15.5px}
+  body.drilling #historySheet .scene-row .spark{grid-column:2; grid-row:1; width:72px}
+  body.drilling #historySheet .scene-row .res{grid-column:2; grid-row:2}
+  body.drilling #historySheet .scene-row .nm{grid-row:1 / span 2}
+  body.drilling #historySheet .scene-row.current{box-shadow:inset 3px 0 var(--accent)}
+  body.drilling #backupBox{margin:0 20px}
+}
 .found b{color:var(--ink); font-weight:500}
 </style>
 </head>
@@ -311,7 +357,10 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
     <div id="progress"></div>
   </div>
 
-  <main class="page" id="page" aria-live="polite"></main>
+  <div class="script-scroll" id="scriptScroll">
+    <div class="past" id="past" aria-label="The scene so far"></div>
+    <main class="page" id="page" aria-live="polite"></main>
+  </div>
 
   <div class="controls" id="controls">
     <div class="minor">
@@ -320,7 +369,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
       <button class="btn-line" id="lineBtn" type="button">Line!</button>
     </div>
     <button class="btn-next btn-primary" id="nextBtn" type="button">Next →</button>
-    <p class="hint" id="hint"><kbd>Space</kbd> Line! &nbsp;·&nbsp; <kbd>Enter</kbd> or <kbd>→</kbd> Next &nbsp;·&nbsp; <kbd>←</kbd> Back &nbsp;·&nbsp; <kbd>R</kbd> hear cue again</p>
+    <p class="hint" id="hint"><kbd>L</kbd> Line! &nbsp;·&nbsp; <kbd>N</kbd> or <kbd>→</kbd> Next &nbsp;·&nbsp; <kbd>←</kbd> Back &nbsp;·&nbsp; <kbd>R</kbd> hear cue again</p>
   </div>
   </div>
 
@@ -329,6 +378,12 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
 <div class="sheet" id="historySheet" role="dialog" aria-modal="true" aria-labelledby="historyHead" hidden>
   <div class="sheet-inner">
     <div class="sheet-head"><h2 id="historyHead">Scenes</h2><button type="button" class="btn-back close-sheet">Done</button></div>
+    <div class="side-head">
+      <div class="eyebrow" id="sideShow"></div>
+      <div class="side-title" id="sideHeading"></div>
+      <div class="summary" id="sideSummary"></div>
+      <button type="button" class="open-sheet" data-sheet="scriptSheet" aria-haspopup="dialog">Script</button>
+    </div>
   <section class="history" aria-label="Scenes">
     <div id="history"></div>
   </section>
@@ -597,30 +652,55 @@ function logRun(){
 }
 
 // ---------- render ----------
+const wide = matchMedia('(min-width: 1024px)');
+wide.addEventListener('change', () => { if (chunks && !$('drill').hidden) render(); });
+
+// Everything in this scene before the current cue, oldest fading most. Only what's been reached: never
+// lines ahead. Your lines show with this run's result (✓ said, CALLED) and any words listening missed.
+function pastHTML(c){
+  let first = c.idx;
+  while (first > 0 && chunks[first-1].section === c.section) first--;
+  if (first === c.idx) return '';
+  const parts = [`<div class="scene-tag">${esc(niceTitle(sections[c.section].title))}</div>`];
+  for (let j = first; j < c.idx; j++){
+    const ch = chunks[j];
+    for (const it of ch.cue) if (it.section === c.section) parts.push(itemHTML(it));
+    const res = runRes.get(ch.key);
+    const mark = res === false ? '<span class="mark ok" title="Said without calling for it">✓</span>' : res === true ? '<span class="mark called">CALLED</span>' : '';
+    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${lineHTML(ch.line.text, runGaps.get(j))}${mark}</div></div>`);
+  }
+  return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
+}
+
 function render(){
   const sc = typeof rangeId === 'number' ? scene(rangeId) : null;
-  $('heading').textContent = `${cap(role)}’s lines`;
+  $('heading').textContent = $('sideHeading').textContent = `${cap(role)}’s lines`;
   $('modeLabel').innerHTML = mode === 'drill' ? '<span class="mode">Drilling missed lines</span>' : rangeId === 'trouble' ? '<span class="mode">Trouble lines</span>' : '';
   renderSummary();
   renderProgress();
   renderHistory();
-  if (finished){ renderEnd(); return; }
+  $('past').innerHTML = '';
+  $('scriptScroll').classList.toggle('ending', finished);
+  if (finished){ renderEnd(); $('scriptScroll').scrollTop = 0; return; }
 
   $('cueCount').textContent = `Cue ${pos+1} of ${order.length}`;
   const c = chunks[order[pos]];
   const prev = c.idx > 0 ? chunks[c.idx-1].line : null;
   const firstInScene = c.idx === 0 || chunks[c.idx-1].section !== c.section;
   const jumpy = rangeId === 'trouble' || mode === 'drill';
+  // On wide screens, scene-order runs show everything already done in this scene above the current cue.
+  const running = wide.matches && !jumpy;
+  if (running) $('past').innerHTML = pastHTML(c);
   let html = '';
   if (c.line.page) html += `<div class="page-no">p. ${esc(c.line.page)}</div>`;
   html += '<div class="script">';
   if (firstInScene || jumpy){ const s = sections[c.section]; if (s) html += `<div class="scene-tag">${esc(niceTitle(s.title))}</div>`; }
-  let cue = c.cue;
-  if (cue.length > CUE_MAX && !showAllCue){
+  let cue = running ? c.cue.filter(it => it.section === c.section) : c.cue;
+  if (!running && cue.length > CUE_MAX && !showAllCue){
     const hidden = cue.length - CUE_MAX;
     html += `<button type="button" class="more" id="moreBtn">Show ${hidden} earlier cue${hidden===1?'':'s'}</button>`;
     cue = cue.slice(-CUE_MAX);
-  } else if (prev && !firstInScene){
+  } else if (!running && prev && !firstInScene){
     html += `<div class="speech prev"><div class="who">${esc(prev.who)}<span class="tag">YOUR LAST LINE</span></div><div class="say">${fmt(prev.text)}</div></div>`;
   }
   for (const it of cue) html += itemHTML(it);
@@ -637,6 +717,7 @@ function render(){
   pageEl.innerHTML = html;
   const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { showAllCue = true; render(); });
   const hw = $('heardWrongBtn'); if (hw) hw.addEventListener('click', heardWrong);
+  if (running){ const sc = $('scriptScroll'); sc.scrollTop = sc.scrollHeight; }
 
   $('controls').hidden = false; $('hint').hidden = false;
   lineBtn.disabled = revealed;
@@ -649,14 +730,11 @@ function renderSummary(){
   const solid = chunks.filter(isSolid).length;
   const runs = P.runs.filter(r => r.role === role).length;
   const streak = practiceStreak();
-  if (!runs && !Object.keys(P.days).length){
-    $('summary').innerHTML = `<span>Progress saves in this browser as you go.</span>`;
-    return;
-  }
-  $('summary').innerHTML =
-    `<span><b>${solid}</b>/${chunks.length} lines solid</span>` +
-    `<span><b>${streak}</b>-day streak</span>` +
-    `<span><b>${runs}</b> run${runs===1?'':'s'}</span>`;
+  $('summary').innerHTML = $('sideSummary').innerHTML = !runs && !Object.keys(P.days).length
+    ? `<span>Progress saves in this browser as you go.</span>`
+    : `<span><b>${solid}</b>/${chunks.length} lines solid</span>` +
+      `<span><b>${streak}</b>-day streak</span>` +
+      `<span><b>${runs}</b> run${runs===1?'':'s'}</span>`;
 }
 
 function renderProgress(){
@@ -1077,11 +1155,11 @@ $('scenePick').addEventListener('click', () => openSheet('historySheet'));
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (['textarea','input','summary','select'].includes(tag)) return;
-  if (tag === 'button' && (e.key === ' ' || e.key === 'Enter')) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (openSheetEl() || !chunks) return;
-  if (e.key === ' ' || e.key === 'l' || e.key === 'L'){ e.preventDefault(); showLine(); }
-  else if (e.key === 'Enter' || e.key === 'ArrowRight'){ e.preventDefault(); next(); }
+  // Letters, not Space/Enter, which already press whatever button has focus.
+  if (e.key === 'l' || e.key === 'L'){ e.preventDefault(); showLine(); }
+  else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight'){ e.preventDefault(); next(); }
   else if (e.key === 'ArrowLeft'){ e.preventDefault(); back(); }
   else if (e.key === 'r' || e.key === 'R'){ e.preventDefault(); speakCurrent(); }
 });
@@ -1236,13 +1314,14 @@ $('newScriptBtn').addEventListener('click', () => {
 
 // ---------- first run ----------
 function syncShow(){
-  $('showLabel').textContent = showName() || 'Line Drill';
+  $('showLabel').textContent = $('sideShow').textContent = showName() || 'Line Drill';
   document.title = showName() ? `${showName()} · Line Drill` : 'Line Drill';
 }
 function showWelcome(){
   if (TTS) speechSynthesis.cancel();
   stopListening();
   chunks = null;
+  document.body.classList.remove('drilling');
   $('drill').hidden = true; $('topActions').hidden = true; $('welcome').hidden = false;
   $('heading').textContent = 'Line Drill'; $('showLabel').hidden = true;
   $('welcomeScript').value = ''; $('showName').value = '';
@@ -1252,7 +1331,9 @@ function showWelcome(){
 }
 function showDrill(){
   $('welcome').hidden = true; $('drill').hidden = false; $('topActions').hidden = false; $('showLabel').hidden = false;
+  document.body.classList.add('drilling');
   syncShow();
+  render();
   window.scrollTo({top:0});
 }
 let welcomeText = '';
