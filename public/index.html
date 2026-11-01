@@ -352,7 +352,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   <button type="button" class="scene-pick" id="scenePick" data-sheet="historySheet" aria-haspopup="dialog"><span id="scenePickLabel"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 
   <div class="status">
-    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
+    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button><button type="button" class="speak-toggle" id="pauseBtn" aria-pressed="false" hidden>Pause</button></div>
     <p class="msg" id="listenMsg" aria-live="polite"></p>
     <div id="progress"></div>
   </div>
@@ -369,7 +369,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
       <button class="btn-line" id="lineBtn" type="button">Line!</button>
     </div>
     <button class="btn-next btn-primary" id="nextBtn" type="button">Next →</button>
-    <p class="hint" id="hint"><kbd>L</kbd> Line! &nbsp;·&nbsp; <kbd>N</kbd> or <kbd>→</kbd> Next &nbsp;·&nbsp; <kbd>←</kbd> Back &nbsp;·&nbsp; <kbd>R</kbd> hear cue again</p>
+    <p class="hint" id="hint"><kbd>L</kbd> Line! &nbsp;·&nbsp; <kbd>N</kbd> or <kbd>→</kbd> Next &nbsp;·&nbsp; <kbd>←</kbd> Back &nbsp;·&nbsp; <kbd>R</kbd> hear cue again<span id="pauseHint"> &nbsp;·&nbsp; <kbd>P</kbd> pause listening</span></p>
   </div>
   </div>
 
@@ -947,6 +947,7 @@ syncSpeakUI();
 // Apple's servers); the text is matched against your line here and never stored.
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let listenOn = !!SR && store.get(K.listen) === '1' && !!store.get(K.listenOk);
+let listenPaused = false;  // mic held off (e.g. to repeat the last line aloud) until Resume, across cue changes
 let cueToken = 0, L = null, userActed = false;
 const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
@@ -1006,22 +1007,34 @@ const needed = n => n <= 2 ? n : n <= 5 ? n - 1 : Math.ceil(n * 0.8);
 const PAUSE_OK = 900, PAUSE_DONE = 400, PAUSE_MISS = 2000;
 
 const hearing = () => !!L && !finished && L.ci === order[pos];
-const blankLabel = () => !hearing() ? 'your line' : L.said ? 'hearing you…' : 'listening…';
+const blankLabel = () => hearing() ? (L.said ? 'hearing you…' : 'listening…') : listenOn && listenPaused ? 'paused' : 'your line';
 function syncListenUI(){
   const b = $('listenBtn');
   b.hidden = !SR;
   b.setAttribute('aria-pressed', String(listenOn));
   b.classList.toggle('live', !!L);
   b.title = listenOn ? 'Listening for your lines. Tap to stop.' : 'Listen for your lines';
+  const p = $('pauseBtn');
+  p.hidden = $('pauseHint').hidden = !listenOn;
+  p.setAttribute('aria-pressed', String(listenPaused));
+  p.textContent = listenPaused ? 'Resume' : 'Pause';
+  p.title = listenPaused ? 'Start listening for this line again (P)' : 'Stop listening for a moment, e.g. to repeat the last line aloud (P)';
   const blank = pageEl.querySelector('.blank');
   if (blank){ blank.classList.toggle('listening', hearing()); $('blankLabel').textContent = blankLabel(); }
 }
 function listenMsg(text){ $('listenMsg').textContent = text || ''; }
 function setListen(on){
   listenOn = on; store.set(K.listen, on ? '1' : '0');
+  listenPaused = false;
   listenMsg('');
   holdWake(speakOn || listenOn);
   if (on) armListen(); else stopListening();
+  syncListenUI();
+}
+function togglePause(){
+  if (!listenOn) return;
+  listenPaused = !listenPaused;
+  if (listenPaused) stopListening(); else armListen();
   syncListenUI();
 }
 // Start listening for the current cue without re-reading it (after a sheet closes, the app returns, etc.).
@@ -1036,7 +1049,7 @@ function listenAfterSpeech(tok){
   wait();
 }
 function startListening(tok){
-  if (tok !== cueToken || !listenOn || !userActed || L || finished || revealed || openSheetEl() || document.visibilityState !== 'visible') return;
+  if (tok !== cueToken || !listenOn || listenPaused || !userActed || L || finished || revealed || openSheetEl() || document.visibilityState !== 'visible') return;
   const ci = order[pos];
   const want = lineWords(chunks[ci].line.text);
   if (!want.length) return;
@@ -1102,6 +1115,7 @@ function stopListening(){
   syncListenUI();
   return true;
 }
+$('pauseBtn').addEventListener('click', togglePause);
 $('listenBtn').addEventListener('click', () => {
   if (!listenOn && !store.get(K.listenOk)){ openSheet('listenSheet'); return; }
   setListen(!listenOn);
@@ -1172,6 +1186,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight'){ e.preventDefault(); next(); }
   else if (e.key === 'ArrowLeft'){ e.preventDefault(); back(); }
   else if (e.key === 'r' || e.key === 'R'){ e.preventDefault(); speakCurrent(); }
+  else if (e.key === 'p' || e.key === 'P'){ e.preventDefault(); togglePause(); }
 });
 
 // ---------- history sheet ----------
