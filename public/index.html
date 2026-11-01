@@ -695,16 +695,18 @@ function contextBefore(c){
 }
 // Everything in this scene before the current cue, oldest fading most. Only what's been reached: never
 // lines ahead. Your lines show with this run's result (✓ said, CALLED) and any words listening missed.
-function pastHTML(c){
+// withCue: also the cue leading into c (for the end of a run, where the summary card shows c's line itself).
+function pastHTML(c, withCue){
   let first = c.idx;
   while (first > 0 && chunks[first-1].section === c.section) first--;
-  if (first === c.idx) return '';
+  if (first === c.idx && !withCue) return '';
   const parts = [`<div class="scene-tag">${esc(niceTitle(sections[c.section].title))}</div>`];
   for (let j = first; j < c.idx; j++){
     const ch = chunks[j];
     for (const it of ch.cue) if (it.section === c.section) parts.push(itemHTML(it));
     parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${saidHTML(ch)}</div></div>`);
   }
+  if (withCue) for (const it of c.cue) if (it.section === c.section) parts.push(itemHTML(it));
   return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
 }
 
@@ -717,7 +719,18 @@ function render(){
   renderHistory();
   $('past').innerHTML = '';
   $('scriptScroll').classList.toggle('ending', finished);
-  if (finished){ renderEnd(); $('scriptScroll').scrollTop = 0; return; }
+  if (finished){
+    renderEnd();
+    // Wide screens, scene-order runs: the whole scene runs above the summary, opening with your last line
+    // (the summary's first block) in the middle of the script area.
+    const sc = $('scriptScroll'), last = pageEl.querySelector('.end .speech.yours');
+    if (wide.matches && mode === 'full' && rangeId !== 'trouble' && last){
+      $('past').innerHTML = pastHTML(chunks[order[order.length - 1]], true);
+      const r = last.getBoundingClientRect(), box = sc.getBoundingClientRect();
+      sc.scrollTop += r.top - box.top - (sc.clientHeight - r.height) / 2;
+    } else sc.scrollTop = 0;
+    return;
+  }
 
   $('cueCount').textContent = `Cue ${pos+1} of ${order.length}`;
   const c = chunks[order[pos]];
