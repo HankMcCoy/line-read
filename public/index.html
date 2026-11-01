@@ -107,6 +107,12 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .say em.paren{color:var(--muted)}
 .dir{font-style:italic; color:var(--muted); font-size:17px; line-height:1.5; padding-left:2em}
 .prev{opacity:.5}
+.prev.just{opacity:.8}
+hr.jump{border:0; border-top:1px dashed var(--rule); margin:2px 0 0; width:100%}
+hr.jump + .scene-tag{margin-top:0}
+.mark{font-family:var(--font-ui); font-size:11px; letter-spacing:.1em; margin-left:8px; vertical-align:1px}
+.mark.ok{color:var(--good)}
+.mark.called{color:var(--accent)}
 .tag{font-family:var(--font-ui); font-size:10.5px; font-weight:400; letter-spacing:.12em; color:var(--muted); margin-left:6px; vertical-align:2px}
 
 .yours{background:var(--hl); border-radius:4px; padding:12px 16px 14px; margin-inline:-16px}
@@ -286,9 +292,6 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   body.drilling .who .tag{display:block; margin:3px 0 0; font-size:9.5px; line-height:1.35; vertical-align:0}
   body.drilling .yours .who, body.drilling .past .mine .who{color:var(--accent)}
   body.drilling .dir{padding-left:122px; font-size:16.5px}
-  .mark{font-family:var(--font-ui); font-size:11px; letter-spacing:.1em; margin-left:8px; vertical-align:1px}
-  .mark.ok{color:var(--good)}
-  .mark.called{color:var(--accent)}
 
   body.drilling .controls{position:static; flex-direction:row; flex-wrap:wrap; box-shadow:none; margin-inline:0; padding:12px 0 16px}
   body.drilling .minor{flex:3 1 0}
@@ -659,6 +662,11 @@ function logRun(){
 const wide = matchMedia('(min-width: 1024px)');
 wide.addEventListener('change', () => { sidebarRange = undefined; if (chunks && !$('drill').hidden) render(); });
 
+// This run's result for one of your lines: ✓ said it, CALLED for it, nothing if not reached this run.
+function resultMark(ch){
+  const res = runRes.get(ch.key);
+  return res === false ? '<span class="mark ok" title="Said without calling for it">✓</span>' : res === true ? '<span class="mark called">CALLED</span>' : '';
+}
 // Everything in this scene before the current cue, oldest fading most. Only what's been reached: never
 // lines ahead. Your lines show with this run's result (✓ said, CALLED) and any words listening missed.
 function pastHTML(c){
@@ -669,9 +677,7 @@ function pastHTML(c){
   for (let j = first; j < c.idx; j++){
     const ch = chunks[j];
     for (const it of ch.cue) if (it.section === c.section) parts.push(itemHTML(it));
-    const res = runRes.get(ch.key);
-    const mark = res === false ? '<span class="mark ok" title="Said without calling for it">✓</span>' : res === true ? '<span class="mark called">CALLED</span>' : '';
-    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${lineHTML(ch.line.text, runGaps.get(j))}${mark}</div></div>`);
+    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${lineHTML(ch.line.text, runGaps.get(j))}${resultMark(ch)}</div></div>`);
   }
   return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
 }
@@ -689,23 +695,30 @@ function render(){
 
   $('cueCount').textContent = `Cue ${pos+1} of ${order.length}`;
   const c = chunks[order[pos]];
-  const prev = c.idx > 0 ? chunks[c.idx-1].line : null;
   const firstInScene = c.idx === 0 || chunks[c.idx-1].section !== c.section;
   const jumpy = rangeId === 'trouble' || mode === 'drill';
   // On wide screens, scene-order runs show everything already done in this scene above the current cue.
   const running = wide.matches && !jumpy;
   if (running) $('past').innerHTML = pastHTML(c);
-  let html = '';
-  if (c.line.page) html += `<div class="page-no">p. ${esc(c.line.page)}</div>`;
+  // The line you said last: in scene order the one just before this cue; when drilling, wherever the
+  // previous cue was, so you can check yourself even when this cue jumps elsewhere in the script.
+  const said = jumpy ? (pos > 0 ? chunks[order[pos-1]] : null) : (firstInScene ? null : chunks[c.idx-1]);
+  const jumped = !!said && (said.idx !== c.idx - 1 || firstInScene);
+  const saidLine = label => `<div class="speech prev${jumped ? ' just' : ''}"><div class="who">${esc(said.line.who)}<span class="tag">${label}</span></div><div class="say">${lineHTML(said.line.text, runGaps.get(said.idx))}${resultMark(said)}</div></div>`;
+  // After a jump the page number moves down beside the new scene's name, below the line you just said.
+  let html = c.line.page && !jumped ? `<div class="page-no">p. ${esc(c.line.page)}</div>` : '';
   html += '<div class="script">';
-  if (firstInScene || jumpy){ const s = sections[c.section]; if (s) html += `<div class="scene-tag">${esc(niceTitle(s.title))}</div>`; }
+  if (jumped) html += saidLine('JUST NOW') + '<hr class="jump">';
+  if (firstInScene || jumpy){
+    const s = sections[c.section];
+    if (s) html += `<div class="scene-tag">${esc(niceTitle(s.title))}${jumped && c.line.page ? ` · p. ${esc(c.line.page)}` : ''}</div>`;
+  }
   let cue = running ? c.cue.filter(it => it.section === c.section) : c.cue;
+  if (said && !jumped && !running) html += saidLine('YOUR LAST LINE');
   if (!running && cue.length > CUE_MAX && !showAllCue){
     const hidden = cue.length - CUE_MAX;
     html += `<button type="button" class="more" id="moreBtn">Show ${hidden} earlier cue${hidden===1?'':'s'}</button>`;
     cue = cue.slice(-CUE_MAX);
-  } else if (!running && prev && !firstInScene){
-    html += `<div class="speech prev"><div class="who">${esc(prev.who)}<span class="tag">YOUR LAST LINE</span></div><div class="say">${fmt(prev.text)}</div></div>`;
   }
   for (const it of cue) html += itemHTML(it);
   const r = rec(c);
