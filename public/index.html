@@ -138,6 +138,8 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 @keyframes pulse{50%{opacity:.35}}
 #listenMsg:empty{display:none}
 mark.gap{background:none; color:var(--bad); text-decoration:underline wavy; text-decoration-thickness:1px; text-underline-offset:4px}
+#heardWrongBtn kbd{margin-left:8px; letter-spacing:0}
+@media (pointer:coarse){ #heardWrongBtn kbd{display:none} }
 .gap-note{font-family:var(--font-ui); font-size:12px; color:var(--muted); margin-top:6px}
 .status-row{align-items:center; gap:8px; flex-wrap:wrap}
 .status-row > span, .speak-toggle{white-space:nowrap}
@@ -713,7 +715,7 @@ function render(){
   html += `<div class="speech yours"><div class="who">${esc(c.line.who)}${tag}</div>`;
   const gaps = runGaps.get(order[pos]);
   html += revealed
-    ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div><button type="button" class="more" id="heardWrongBtn" style="margin-top:8px">I said it right</button>' : ''}`
+    ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div><button type="button" class="more" id="heardWrongBtn" style="margin-top:8px" aria-keyshortcuts="C">I said it right<kbd>C</kbd></button>' : ''}`
     : `<div class="blank${hearing() ? ' listening' : ''}" aria-label="Your line is hidden"><i></i><span id="blankLabel">${blankLabel()}</span><i></i></div>`;
   html += '</div></div>';
   pageEl.innerHTML = html;
@@ -1187,6 +1189,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft'){ e.preventDefault(); back(); }
   else if (e.key === 'r' || e.key === 'R'){ e.preventDefault(); speakCurrent(); }
   else if (e.key === 'p' || e.key === 'P'){ e.preventDefault(); togglePause(); }
+  else if ((e.key === 'c' || e.key === 'C') && $('heardWrongBtn')){ e.preventDefault(); heardWrong(); }
 });
 
 // ---------- history sheet ----------
