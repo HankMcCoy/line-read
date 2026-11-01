@@ -108,6 +108,7 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .dir{font-style:italic; color:var(--muted); font-size:17px; line-height:1.5; padding-left:2em}
 .prev{opacity:.5}
 .prev.just{opacity:.8}
+.context{display:flex; flex-direction:column; gap:18px; opacity:.55}
 hr.jump{border:0; border-top:1px dashed var(--rule); margin:2px 0 0; width:100%}
 hr.jump + .scene-tag{margin-top:0}
 .mark{font-family:var(--font-ui); font-size:11px; letter-spacing:.1em; margin-left:8px; vertical-align:1px}
@@ -456,6 +457,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
 const SAMPLE_SCRIPT = "@ Scene 1 — The Green Room\n# 1\n(Half an hour before curtain. ROSA paces with a script. MAX enters with a clipboard.)\nMAX: Thirty minutes, Rosa.\nROSA: Thirty? It was thirty an hour ago.\nMAX: That was the half-hour call for the half-hour call.\nROSA: That isn’t a thing.\nMAX: It is tonight. How are the lines?\nROSA: Perfect. Flawless. Gone.\nMAX: Gone?\nROSA: Gone. Every word of act two has left the building.\nMAX: You ran it twice this afternoon.\nROSA: And it went beautifully both times. That’s how I know it’s gone.\n(♪ COMPANY, warming up offstage)\nMAX: Hear that? Everyone else is nervous too.\nROSA: They’re singing scales. Scales don’t have a second act.\n@ Scene 2 — The Wings\n# 2\n(Places. ROSA and MAX in the wings, lit by a blue running light.)\nMAX: Last thing. What’s your first line?\nROSA: My first line.\nMAX: Yes.\nROSA: My first line is “Good evening, Inspector.”\nMAX: And then?\nROSA: And then he says something, and I say something back.\nMAX: Rosa.\nROSA: “You’re late, Inspector. The body has been waiting.”\nMAX: There it is.\nROSA: There it is.\n(The house lights fade. MAX squeezes her shoulder and exits.)";
 const SAMPLE_ROLE = 'ROSA';
 const CUE_MAX = 6;        // cue items shown before "show earlier"
+const CONTEXT_LINES = 4;  // spoken lines shown before yours when drilling out of order
 const SOLID = 3;          // clean runs in a row before a line counts as solid
 const MAX_RUNS = 800;
 const K = { rate:'ld-rate', speak:'ld-speak', day:'ld-day', script:'ld-script', role:'ld-role', scene:'ld-scene', prog:'ld-progress', show:'ld-show', attest:'ld-attested', listen:'ld-listen', listenOk:'ld-listen-ok' };
@@ -675,6 +677,22 @@ function saidHTML(ch){
   if (!gaps && runRes.get(ch.key) === true) gaps = [...new Set(lineWords(ch.line.text).map(x => x.tok))];
   return lineHTML(ch.line.text, gaps) + resultMark(ch);
 }
+// Trouble lines and drills jump around the script, so lead into the cue with enough of what came before it in
+// the scene (your lines included) that at least CONTEXT_LINES spoken lines precede yours.
+function contextBefore(c){
+  let need = CONTEXT_LINES - c.cue.filter(it => it.type === 'line' && it.section === c.section).length;
+  const out = [];
+  for (let j = c.idx - 1; need > 0 && j >= 0 && chunks[j].section === c.section; j--){
+    const ch = chunks[j];
+    out.unshift(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${fmt(ch.line.text)}</div></div>`);
+    need--;
+    for (let k = ch.cue.length - 1; need > 0 && k >= 0 && ch.cue[k].section === c.section; k--){
+      out.unshift(itemHTML(ch.cue[k]));
+      if (ch.cue[k].type === 'line') need--;
+    }
+  }
+  return out;
+}
 // Everything in this scene before the current cue, oldest fading most. Only what's been reached: never
 // lines ahead. Your lines show with this run's result (✓ said, CALLED) and any words listening missed.
 function pastHTML(c){
@@ -722,7 +740,9 @@ function render(){
     if (s) html += `<div class="scene-tag">${esc(niceTitle(s.title))}${jumped && c.line.page ? ` · p. ${esc(c.line.page)}` : ''}</div>`;
   }
   let cue = running ? c.cue.filter(it => it.section === c.section) : c.cue;
-  if (said && !jumped && !running) html += saidLine('YOUR LAST LINE');
+  const context = jumpy ? contextBefore(c) : [];
+  if (context.length) html += `<div class="context" aria-label="Earlier in the scene">${context.join('')}</div>`;
+  else if (said && !jumped && !running) html += saidLine('YOUR LAST LINE');
   if (!running && cue.length > CUE_MAX && !showAllCue){
     const hidden = cue.length - CUE_MAX;
     html += `<button type="button" class="more" id="moreBtn">Show ${hidden} earlier cue${hidden===1?'':'s'}</button>`;
@@ -743,7 +763,15 @@ function render(){
   const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { showAllCue = true; render(); });
   const hw = $('heardWrongBtn'); if (hw) hw.addEventListener('click', heardWrong);
   syncListenUI();
-  if (running){ const sc = $('scriptScroll'); sc.scrollTop = sc.scrollHeight; }
+  // Keep your line in view: on wide screens the script area scrolls to it; on a phone, nudge the page up if the
+  // pinned controls cover it (after this frame, so it wins over a scroll-to-top from picking a scene).
+  if (wide.matches){ const sc = $('scriptScroll'); sc.scrollTop = sc.scrollHeight; }
+  else requestAnimationFrame(() => {
+    const y = pageEl.querySelector('.yours'), ctl = $('controls');
+    if (!y || ctl.hidden) return;
+    const over = y.getBoundingClientRect().bottom + 12 - ctl.getBoundingClientRect().top;
+    if (over > 0) window.scrollBy(0, over);
+  });
 
   $('controls').hidden = false; $('hint').hidden = false;
   lineBtn.disabled = revealed;
