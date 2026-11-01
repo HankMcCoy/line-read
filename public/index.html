@@ -668,6 +668,13 @@ function resultMark(ch){
   const res = runRes.get(ch.key);
   return res === false ? '<span class="mark ok" title="Said without calling for it">✓</span>' : res === true ? '<span class="mark called">CALLED</span>' : '';
 }
+// One of your lines as said this run, then its mark. The words listening missed are marked; a line called
+// with Line! is marked throughout, since none of it was said.
+function saidHTML(ch){
+  let gaps = runGaps.get(ch.idx);
+  if (!gaps && runRes.get(ch.key) === true) gaps = [...new Set(lineWords(ch.line.text).map(x => x.tok))];
+  return lineHTML(ch.line.text, gaps) + resultMark(ch);
+}
 // Everything in this scene before the current cue, oldest fading most. Only what's been reached: never
 // lines ahead. Your lines show with this run's result (✓ said, CALLED) and any words listening missed.
 function pastHTML(c){
@@ -678,7 +685,7 @@ function pastHTML(c){
   for (let j = first; j < c.idx; j++){
     const ch = chunks[j];
     for (const it of ch.cue) if (it.section === c.section) parts.push(itemHTML(it));
-    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${lineHTML(ch.line.text, runGaps.get(j))}${resultMark(ch)}</div></div>`);
+    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${saidHTML(ch)}</div></div>`);
   }
   return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
 }
@@ -705,7 +712,7 @@ function render(){
   // previous cue was, so you can check yourself even when this cue jumps elsewhere in the script.
   const said = jumpy ? (pos > 0 ? chunks[order[pos-1]] : null) : (firstInScene ? null : chunks[c.idx-1]);
   const jumped = !!said && (said.idx !== c.idx - 1 || firstInScene);
-  const saidLine = label => `<div class="speech prev${jumped ? ' just' : ''}"><div class="who">${esc(said.line.who)}<span class="tag">${label}</span></div><div class="say">${lineHTML(said.line.text, runGaps.get(said.idx))}${resultMark(said)}</div></div>`;
+  const saidLine = label => `<div class="speech prev${jumped ? ' just' : ''}"><div class="who">${esc(said.line.who)}<span class="tag">${label}</span></div><div class="say">${saidHTML(said)}</div></div>`;
   // After a jump the page number moves down beside the new scene's name, below the line you just said.
   let html = c.line.page && !jumped ? `<div class="page-no">p. ${esc(c.line.page)}</div>` : '';
   html += '<div class="script">';
