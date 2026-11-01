@@ -119,6 +119,7 @@ hr.jump + .scene-tag{margin-top:0}
 .blank{display:flex; align-items:center; gap:10px; min-height:29px}
 .blank span{font-family:var(--font-ui); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent)}
 .blank i{flex:1; border-top:2px dotted var(--accent); opacity:.6}
+.blank .pause{flex:none; padding:4px 10px; font-size:11px}
 .reveal{animation:rise .28s ease-out}
 @keyframes rise{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
 
@@ -357,7 +358,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   <button type="button" class="scene-pick" id="scenePick" data-sheet="historySheet" aria-haspopup="dialog"><span id="scenePickLabel"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 
   <div class="status">
-    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button><button type="button" class="speak-toggle" id="pauseBtn" aria-pressed="false" hidden>Pause</button></div>
+    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
     <p class="msg" id="listenMsg" aria-live="polite"></p>
     <div id="progress"></div>
   </div>
@@ -729,11 +730,12 @@ function render(){
   const gaps = runGaps.get(order[pos]);
   html += revealed
     ? `<div class="say reveal">${lineHTML(c.line.text, gaps)}</div>${gaps ? '<div class="gap-note">Underlined words weren’t heard.</div><button type="button" class="more" id="heardWrongBtn" style="margin-top:8px" aria-keyshortcuts="C">I said it right<kbd>C</kbd></button>' : ''}`
-    : `<div class="blank${hearing() ? ' listening' : ''}" aria-label="Your line is hidden"><i></i><span id="blankLabel">${blankLabel()}</span><i></i></div>`;
+    : `<div class="blank${hearing() ? ' listening' : ''}" aria-label="Your line is hidden"><i></i><span id="blankLabel">${blankLabel()}</span><button type="button" class="speak-toggle pause" id="pauseBtn" aria-pressed="false" hidden>Pause</button><i></i></div>`;
   html += '</div></div>';
   pageEl.innerHTML = html;
   const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { showAllCue = true; render(); });
   const hw = $('heardWrongBtn'); if (hw) hw.addEventListener('click', heardWrong);
+  syncListenUI();
   if (running){ const sc = $('scriptScroll'); sc.scrollTop = sc.scrollHeight; }
 
   $('controls').hidden = false; $('hint').hidden = false;
@@ -1029,13 +1031,16 @@ function syncListenUI(){
   b.setAttribute('aria-pressed', String(listenOn));
   b.classList.toggle('live', !!L);
   b.title = listenOn ? 'Listening for your lines. Tap to stop.' : 'Listen for your lines';
-  const p = $('pauseBtn');
-  p.hidden = $('pauseHint').hidden = !listenOn;
-  p.setAttribute('aria-pressed', String(listenPaused));
-  p.textContent = listenPaused ? 'Resume' : 'Pause';
-  p.title = listenPaused ? 'Start listening for this line again (P)' : 'Stop listening for a moment, e.g. to repeat the last line aloud (P)';
+  $('pauseHint').hidden = !listenOn;
   const blank = pageEl.querySelector('.blank');
-  if (blank){ blank.classList.toggle('listening', hearing()); $('blankLabel').textContent = blankLabel(); }
+  if (blank){
+    blank.classList.toggle('listening', hearing()); $('blankLabel').textContent = blankLabel();
+    const p = $('pauseBtn');
+    p.hidden = !listenOn;
+    p.setAttribute('aria-pressed', String(listenPaused));
+    p.textContent = listenPaused ? 'Resume' : 'Pause';
+    p.title = listenPaused ? 'Start listening for this line again (P)' : 'Stop listening for a moment, e.g. to repeat the last line aloud (P)';
+  }
 }
 function listenMsg(text){ $('listenMsg').textContent = text || ''; }
 function setListen(on){
@@ -1130,7 +1135,8 @@ function stopListening(){
   syncListenUI();
   return true;
 }
-$('pauseBtn').addEventListener('click', togglePause);
+// The Pause button lives in your line's placeholder, which is redrawn every cue.
+pageEl.addEventListener('click', e => { if (e.target.closest('#pauseBtn')) togglePause(); });
 $('listenBtn').addEventListener('click', () => {
   if (!listenOn && !store.get(K.listenOk)){ openSheet('listenSheet'); return; }
   setListen(!listenOn);
