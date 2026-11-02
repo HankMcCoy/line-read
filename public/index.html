@@ -104,6 +104,7 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .speech{display:flex; flex-direction:column; gap:3px}
 .who{font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:15px; text-align:center}
 .say{font-size:19.5px; line-height:1.5; overflow-wrap:anywhere}
+.say.masked{color:var(--muted); letter-spacing:.35em}
 .say em.paren{color:var(--muted)}
 .dir{font-style:italic; color:var(--muted); font-size:17px; line-height:1.5; padding-left:2em}
 .prev{opacity:.5}
@@ -679,12 +680,16 @@ function saidHTML(ch){
 }
 // Trouble lines and drills jump around the script, so lead into the cue with enough of what came before it in
 // the scene (your lines included) that at least CONTEXT_LINES spoken lines precede yours.
+// An earlier line of yours with the same words as the line you're being asked for would give it away
+// (e.g. two "Thanks for watching." lines in a row in Trouble lines), so it's shown blanked out instead.
+const sameWords = (ch, c) => !!ch && !!c && ch.idx !== c.idx && normText(ch.line.text) === normText(c.line.text);
+const MASKED_SAY = '<div class="say masked" aria-label="Hidden: same words as the line you’re about to say">· · ·</div>';
 function contextBefore(c){
   let need = CONTEXT_LINES - c.cue.filter(it => it.type === 'line' && it.section === c.section).length;
   const out = [];
   for (let j = c.idx - 1; need > 0 && j >= 0 && chunks[j].section === c.section; j--){
     const ch = chunks[j];
-    out.unshift(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${fmt(ch.line.text)}</div></div>`);
+    out.unshift(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div>${sameWords(ch, c) ? MASKED_SAY : `<div class="say">${fmt(ch.line.text)}</div>`}</div>`);
     need--;
     for (let k = ch.cue.length - 1; need > 0 && k >= 0 && ch.cue[k].section === c.section; k--){
       out.unshift(itemHTML(ch.cue[k]));
@@ -704,7 +709,7 @@ function pastHTML(c, withCue){
   for (let j = first; j < c.idx; j++){
     const ch = chunks[j];
     for (const it of ch.cue) if (it.section === c.section) parts.push(itemHTML(it));
-    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div><div class="say">${saidHTML(ch)}</div></div>`);
+    parts.push(`<div class="speech mine"><div class="who">${esc(ch.line.who)}</div>${!withCue && sameWords(ch, c) ? MASKED_SAY : `<div class="say">${saidHTML(ch)}</div>`}</div>`);
   }
   if (withCue) for (const it of c.cue) if (it.section === c.section) parts.push(itemHTML(it));
   return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
@@ -743,7 +748,7 @@ function render(){
   // previous cue was, so you can check yourself even when this cue jumps elsewhere in the script.
   const said = jumpy ? (pos > 0 ? chunks[order[pos-1]] : null) : (firstInScene ? null : chunks[c.idx-1]);
   const jumped = !!said && (said.idx !== c.idx - 1 || firstInScene);
-  const saidLine = label => `<div class="speech prev${jumped ? ' just' : ''}"><div class="who">${esc(said.line.who)}<span class="tag">${label}</span></div><div class="say">${saidHTML(said)}</div></div>`;
+  const saidLine = label => `<div class="speech prev${jumped ? ' just' : ''}"><div class="who">${esc(said.line.who)}<span class="tag">${label}</span></div>${sameWords(said, c) ? MASKED_SAY : `<div class="say">${saidHTML(said)}</div>`}</div>`;
   // After a jump the page number moves down beside the new scene's name, below the line you just said.
   let html = c.line.page && !jumped ? `<div class="page-no">p. ${esc(c.line.page)}</div>` : '';
   html += '<div class="script">';
@@ -765,7 +770,7 @@ function render(){
   const r = rec(c);
   let tag = '';
   if (r && r.streak >= SOLID) tag = `<span class="tag solid">SOLID</span>`;
-  else if (r && r.miss) tag = `<span class="tag shaky">CALLED ${r.miss} OF ${r.ok + r.miss}</span>`;
+  else if (r && r.miss) tag = `<span class="tag shaky">CALLED ${r.miss} OF ${r.ok + r.miss}${r.streak ? ` · ${r.streak}/${SOLID} CLEAN` : ''}</span>`;
   html += `<div class="speech yours"><div class="who">${esc(c.line.who)}${tag}</div>`;
   const gaps = runGaps.get(order[pos]);
   html += revealed
@@ -881,6 +886,10 @@ function renderEnd(){
   if (sc && mode === 'full'){
     const runs = sceneRuns(sc), prevRun = runs[runs.length - 2];
     html += `<div class="compare">${sparkSVG(runs, 'spark-lg')}<span>${prevRun ? `Last time you called for <b>${prevRun.called}</b> (${ago(prevRun.t)}). This run: <b>${missed.length}</b>.` : 'First recorded run of this scene.'}</span></div>`;
+  }
+  if (rangeId === 'trouble'){
+    const left = chunks.filter(isTrouble).length, cleared = order.filter(ci => !isTrouble(chunks[ci])).length;
+    html += `<div class="compare"><span>${cleared ? `<b>${cleared}</b> cleared from your trouble list. ` : ''}${left ? `<b>${left}</b> still to go. A line clears after ${SOLID} clean runs in a row.` : 'Your trouble list is empty.'}</span></div>`;
   }
   if (!missed.length){
     html += `<h2>Off book for this stretch.</h2><p>You got through ${order.length} cue${order.length===1?'':'s'} without calling for a line.</p>`;
