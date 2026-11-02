@@ -1,6 +1,6 @@
 // Line Drill service worker: lets the app open offline once it has been visited.
 // Bump VERSION whenever the app shell changes so old caches are cleared.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `line-read-shell-${VERSION}`;
 const FONTS = 'line-read-fonts';
 const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
