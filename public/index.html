@@ -678,12 +678,12 @@ function saidHTML(ch){
   if (!gaps && runRes.get(ch.key) === true) gaps = [...new Set(lineWords(ch.line.text).map(x => x.tok))];
   return lineHTML(ch.line.text, gaps) + resultMark(ch);
 }
-// Trouble lines and drills jump around the script, so lead into the cue with enough of what came before it in
-// the scene (your lines included) that at least CONTEXT_LINES spoken lines precede yours.
 // An earlier line of yours with the same words as the line you're being asked for would give it away
 // (e.g. two "Thanks for watching." lines in a row in Trouble lines), so it's shown blanked out instead.
 const sameWords = (ch, c) => !!ch && !!c && ch.idx !== c.idx && normText(ch.line.text) === normText(c.line.text);
 const MASKED_SAY = '<div class="say masked" aria-label="Hidden: same words as the line you’re about to say">· · ·</div>';
+// Trouble lines and drills jump around the script, so lead into the cue with enough of what came before it in
+// the scene (your lines included) that at least CONTEXT_LINES spoken lines precede yours.
 function contextBefore(c){
   let need = CONTEXT_LINES - c.cue.filter(it => it.type === 'line' && it.section === c.section).length;
   const out = [];
