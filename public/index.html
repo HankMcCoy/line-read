@@ -110,6 +110,14 @@ select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .prev{opacity:.5}
 .prev.just{opacity:.8}
 .context{display:flex; flex-direction:column; gap:18px; opacity:.55}
+/* Reading a scene: the whole scene with your lines showing; drilling controls and voice features set aside. */
+#drillSceneBtn{display:none}
+body.reading #drillSceneBtn{display:block}
+body.reading #progress, body.reading .minor, body.reading #nextBtn, body.reading #hint, body.reading #speakBtn,
+body.reading #rateBtn, body.reading #listenBtn, body.reading #listenMsg{display:none}
+body.reading .scene-tag{margin:18px 0 0}
+body.reading .script > .scene-tag:first-child{margin-top:-14px}
+.page-mark{font-family:var(--font-ui); font-size:11.5px; color:var(--muted); text-align:right; border-top:1px dashed var(--rule); padding-top:4px; letter-spacing:.06em}
 hr.jump{border:0; border-top:1px dashed var(--rule); margin:2px 0 0; width:100%}
 hr.jump + .scene-tag{margin-top:0}
 .mark{font-family:var(--font-ui); font-size:11px; letter-spacing:.1em; margin-left:8px; vertical-align:1px}
@@ -360,7 +368,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
   <button type="button" class="scene-pick" id="scenePick" data-sheet="historySheet" aria-haspopup="dialog"><span id="scenePickLabel"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 
   <div class="status">
-    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
+    <div class="status-row"><span id="cueCount">Cue 1</span><span id="modeLabel"></span><button type="button" class="speak-toggle" id="readBtn" aria-pressed="false" title="Read the whole scene with your lines showing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5C5.5 4.5 9 4.5 12 6.5c3-2 6.5-2 9-1v13c-2.5-1-6-1-9 1-3-2-6.5-2-9-1z"/><path d="M12 6.5v13"/></svg>Read</button><button type="button" class="speak-toggle" id="speakBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>Read cues</button><button type="button" class="speak-toggle rate" id="rateBtn" hidden aria-label="Reading speed">1.4×</button><button type="button" class="speak-toggle" id="listenBtn" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Listen</button></div>
     <p class="msg" id="listenMsg" aria-live="polite"></p>
     <div id="progress"></div>
   </div>
@@ -377,6 +385,7 @@ section.history h2{font-size:22px; font-weight:600; margin:0; text-wrap:balance}
       <button class="btn-line" id="lineBtn" type="button">Line!</button>
     </div>
     <button class="btn-next btn-primary" id="nextBtn" type="button">Next →</button>
+    <button class="btn-next btn-primary" id="drillSceneBtn" type="button">Drill this scene →</button>
     <p class="hint" id="hint"><kbd>L</kbd> Line! &nbsp;·&nbsp; <kbd>N</kbd> or <kbd>→</kbd> Next &nbsp;·&nbsp; <kbd>←</kbd> Back &nbsp;·&nbsp; <kbd>R</kbd> hear cue again<span id="pauseHint"> &nbsp;·&nbsp; <kbd>P</kbd> pause listening</span></p>
   </div>
   </div>
@@ -579,6 +588,8 @@ let role, chunks = null, tail, sections, scenes, rangeId, order, pos, revealed, 
 let runRes = new Map(), runSnap = new Map(), runLogged = false, currentRun = null;
 let runGaps = new Map();  // cue index -> token indexes of words listening didn't hear, this run
 let sidebarRange;         // the range the wide-screen sidebar last scrolled to, so it only scrolls when that changes
+let reading = false;      // reading the scene (your lines showing) instead of drilling it; records nothing
+let readShown;            // what the reading view last showed, so it only jumps to the top when that changes
 let day = parseInt(store.get(K.day) || '1', 10) || 1;
 const $ = id => document.getElementById(id);
 const pageEl = $('page'), lineBtn = $('lineBtn'), nextBtn = $('nextBtn'), backBtn = $('backBtn');
@@ -715,6 +726,34 @@ function pastHTML(c, withCue){
   return parts.map((h, k) => `<div style="opacity:${Math.max(.35, .8 - (parts.length - 1 - k) * .07).toFixed(2)}">${h}</div>`).join('');
 }
 
+// The scene (or, for Whole script, everything) as a script with your lines showing, page numbers marked.
+// Trouble lines read the scene of the current trouble line.
+function renderRead(){
+  const secId = typeof rangeId === 'number' ? rangeId : rangeId === 'trouble' ? chunks[order[pos]].section : null;
+  const items = [];
+  for (const ch of chunks){ items.push(...ch.cue, {...ch.line, mine: true}); }
+  items.push(...tail);
+  let html = '<div class="script">', sec = null, page = null, mine = 0;
+  for (const it of items){
+    if (secId !== null && it.section !== secId) continue;
+    if (it.section !== sec){ sec = it.section; html += `<div class="scene-tag">${esc(niceTitle(sections[sec].title))}</div>`; }
+    if (it.page && it.page !== page){ page = it.page; html += `<div class="page-mark">p. ${esc(page)}</div>`; }
+    if (it.mine) mine++;
+    html += it.mine ? `<div class="speech yours"><div class="who">${esc(it.who)}</div><div class="say">${fmt(it.text)}</div></div>` : itemHTML(it);
+  }
+  pageEl.innerHTML = html + '</div>';
+  $('cueCount').textContent = `Reading · ${mine} of your line${mine === 1 ? '' : 's'}`;
+  $('drillSceneBtn').textContent = finished || pos === 0 ? 'Drill this scene →' : `Back to drilling · cue ${pos + 1} →`;
+  const key = `${rangeId}|${secId}`;
+  if (readShown !== key){ readShown = key; $('scriptScroll').scrollTop = 0; window.scrollTo({top: 0}); }
+}
+function setReading(on){
+  reading = on; readShown = undefined;
+  if (on){ stopListening(); if (TTS) speechSynthesis.cancel(); render(); return; }
+  if (finished) startRun('full');
+  else { render(); speakCurrent(); }
+}
+
 function render(){
   const sc = typeof rangeId === 'number' ? scene(rangeId) : null;
   $('heading').textContent = $('sideHeading').textContent = `${cap(role)}’s lines`;
@@ -723,7 +762,10 @@ function render(){
   renderProgress();
   renderHistory();
   $('past').innerHTML = '';
-  $('scriptScroll').classList.toggle('ending', finished);
+  $('scriptScroll').classList.toggle('ending', finished || reading);
+  document.body.classList.toggle('reading', reading);
+  $('readBtn').setAttribute('aria-pressed', String(reading));
+  if (reading){ renderRead(); return; }
   if (finished){
     renderEnd();
     // Wide screens, scene-order runs: the whole scene runs above the summary, opening with your last line
@@ -959,6 +1001,7 @@ function say(text, who, opts){
 // Every cue change goes through here: stop listening, read the cue, then listen for your line.
 function speakCurrent(){
   const tok = ++cueToken;
+  if (reading){ stopListening(); return; }
   // Give the microphone a moment to let go before speaking (iPhones route audio differently while it's on).
   if (stopListening()) setTimeout(() => { if (tok === cueToken) speakCue(tok); }, 300);
   else speakCue(tok);
@@ -1126,7 +1169,7 @@ function listenAfterSpeech(tok){
   wait();
 }
 function startListening(tok){
-  if (tok !== cueToken || !listenOn || listenPaused || !userActed || L || finished || revealed || openSheetEl() || document.visibilityState !== 'visible') return;
+  if (tok !== cueToken || !listenOn || listenPaused || reading || !userActed || L || finished || revealed || openSheetEl() || document.visibilityState !== 'visible') return;
   const ci = order[pos];
   const want = lineWords(chunks[ci].line.text);
   if (!want.length) return;
@@ -1214,7 +1257,7 @@ syncListenUI();
 // ---------- actions ----------
 // gaps: words listening didn't hear, when it was listening that gave up on the line.
 function showLine(gaps){
-  if (finished || revealed) return;
+  if (finished || revealed || reading) return;
   stopListening();
   if (Array.isArray(gaps)) runGaps.set(order[pos], gaps); else runGaps.delete(order[pos]);
   revealed = true; prompted.add(order[pos]);
@@ -1229,7 +1272,7 @@ function heardWrong(){
   next();
 }
 function next(){
-  if (finished) return;
+  if (finished || reading) return;
   showAllCue = false;
   commit(order[pos], prompted.has(order[pos]));
   if (pos < order.length - 1){ pos++; revealed = false; render(); speakCurrent(); }
@@ -1244,12 +1287,15 @@ function next(){
   }
 }
 function back(){
+  if (reading) return;
   showAllCue = false;
   if (finished){ finished = false; pos = order.length - 1; revealed = false; render(); armListen(); return; }
   if (pos > 0){ pos--; revealed = false; render(); speakCurrent(); }
 }
 
 lineBtn.addEventListener('click', () => showLine());
+$('readBtn').addEventListener('click', () => setReading(!reading));
+$('drillSceneBtn').addEventListener('click', () => setReading(false));
 nextBtn.addEventListener('click', next);
 backBtn.addEventListener('click', back);
 $('scenePick').addEventListener('click', () => openSheet('historySheet'));
@@ -1258,7 +1304,7 @@ document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (['textarea','input','summary','select'].includes(tag)) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (openSheetEl() || !chunks) return;
+  if (openSheetEl() || !chunks || reading) return;
   // Letters, not Space/Enter, which already press whatever button has focus.
   if (e.key === 'l' || e.key === 'L'){ e.preventDefault(); showLine(); }
   else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight'){ e.preventDefault(); next(); }
@@ -1424,8 +1470,8 @@ function syncShow(){
 function showWelcome(){
   if (TTS) speechSynthesis.cancel();
   stopListening();
-  chunks = null;
-  document.body.classList.remove('drilling');
+  chunks = null; reading = false;
+  document.body.classList.remove('drilling', 'reading');
   $('drill').hidden = true; $('topActions').hidden = true; $('welcome').hidden = false;
   $('heading').textContent = 'Line Drill'; $('showLabel').hidden = true;
   $('welcomeScript').value = ''; $('showName').value = '';
